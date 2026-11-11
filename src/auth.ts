@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export const SESSION_COOKIE = "storage_session";
 
-function safeEqual(a: string, b: string): boolean {
+export function safeEqual(a: string, b: string): boolean {
   // Hash first so the comparison is constant-time regardless of length.
   const ha = createHash("sha256").update(a).digest();
   const hb = createHash("sha256").update(b).digest();
@@ -91,3 +91,6 @@ export class LoginLimiter {
     this.failures.delete(key);
   }
 }
+
+/** Shared by the web login and the MCP authorization page. */
+export const loginLimiter = new LoginLimiter();

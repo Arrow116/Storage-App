@@ -44,6 +44,22 @@ let prefix = optional("S3_PREFIX") ?? "";
 prefix = prefix.replace(/^\/+/, "");
 if (prefix && !prefix.endsWith("/")) prefix += "/";
 
+const mcpToken = optional("MCP_TOKEN");
+if (mcpToken && mcpToken.length < 24) {
+  console.error("MCP_TOKEN must be at least 24 characters (try: openssl rand -hex 32)");
+  process.exit(1);
+}
+
+let publicUrl = optional("PUBLIC_URL");
+if (publicUrl) {
+  try {
+    publicUrl = new URL(publicUrl).origin;
+  } catch {
+    console.error("PUBLIC_URL must be a full URL such as https://files.example.com");
+    process.exit(1);
+  }
+}
+
 export const config = {
   port: int("PORT", 3000),
   username: process.env.APP_USERNAME || "admin",
@@ -52,6 +68,14 @@ export const config = {
   sessionTtlSeconds: int("SESSION_TTL_HOURS", 24 * 7) * 3600,
   cookieSecure: bool("COOKIE_SECURE"),
   trustProxy: bool("TRUST_PROXY"),
+  /** Origin clients use to reach the app. Derived from the request when unset. */
+  publicUrl,
+  mcp: {
+    enabled: bool("MCP_ENABLED"),
+    readOnly: bool("MCP_READ_ONLY"),
+    /** Optional static bearer token, for clients that cannot do the OAuth sign-in. */
+    token: mcpToken,
+  },
   maxUploadBytes: int("MAX_UPLOAD_MB", 5120) * 1024 * 1024,
   s3: {
     bucket: required("S3_BUCKET"),
