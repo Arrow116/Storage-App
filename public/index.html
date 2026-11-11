@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Storage</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main id="login-view" class="login" hidden>
+      <form id="login-form" class="card">
+        <h1>Storage</h1>
+        <label>Username <input name="username" autocomplete="username" required autofocus /></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+        <p id="login-error" class="error" role="alert" hidden></p>
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+    </main>
+
+    <div id="app-view" hidden>
+      <header class="topbar">
+        <strong class="brand">Storage</strong>
+        <span class="spacer"></span>
+        <span id="whoami" class="muted"></span>
+        <button id="logout" type="button">Sign out</button>
+      </header>
+
+      <main class="content">
+        <div class="toolbar">
+          <nav id="breadcrumbs" class="breadcrumbs" aria-label="Folder path"></nav>
+          <span class="spacer"></span>
+          <button id="new-folder" type="button">New folder</button>
+          <button id="upload" class="primary" type="button">Upload</button>
+          <input id="file-input" type="file" multiple hidden />
+        </div>
+
+        <ul id="uploads" class="uploads"></ul>
+
+        <div id="dropzone" class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="num">Size</th>
+                <th class="when">Modified</th>
+                <th><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <p id="status" class="status muted"></p>
+        </div>
+        <p class="hint muted">Drop files anywhere on the list to upload them to this folder.</p>
+      </main>
+    </div>
+
+    <dialog id="share-dialog">
+      <form method="dialog">
+        <h2>Share link</h2>
+        <p id="share-name" class="muted"></p>
+        <label>
+          Link expires after
+          <select id="share-expiry">
+            <option value="3600">1 hour</option>
+            <option value="86400" selected>1 day</option>
+            <option value="604800">7 days</option>
+          </select>
+        </label>
+        <input id="share-url" readonly hidden aria-label="Share link" />
+        <p id="share-note" class="muted" hidden>Anyone with this link can download the file until it expires.</p>
+        <p id="share-error" class="error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button value="close">Close</button>
+          <button id="share-create" class="primary" type="button">Create link</button>
+          <button id="share-copy" class="primary" type="button" hidden>Copy link</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="folder-dialog">
+      <form id="folder-form" method="dialog">
+        <h2>New folder</h2>
+        <label>Name <input id="folder-name" maxlength="200" required /></label>
+        <p id="folder-error" class="error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" id="folder-cancel">Cancel</button>
+          <button class="primary" type="submit">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,40 @@
+# Optional: run S3-compatible storage (SeaweedFS) on the same host instead of AWS S3.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local-s3.yml up -d --build
+#
+# Files live in the `s3-data` volume. Back that volume up; it is the only copy.
+services:
+  app:
+    depends_on:
+      s3:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: http://s3:8333
+      S3_BUCKET: ${S3_BUCKET:-storage}
+      # SeaweedFS keeps emptied directories around; hide them.
+      S3_PRUNE_EMPTY_FOLDERS: "true"
+      # Share links are opened by browsers, so they must use an address reachable from
+      # outside this host. Set S3_PUBLIC_ENDPOINT in .env to http://<server-ip>:8333.
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:8333}
+
+  s3:
+    image: chrislusf/seaweedfs:4.53
+    restart: unless-stopped
+    command: mini -dir=/data -bucket=${S3_BUCKET:-storage}
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID in .env}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY in .env}
+    ports:
+      # Only the S3 API is published, and only so share links work.
+      - "${S3_BIND:-0.0.0.0}:${S3_PORT:-8333}:8333"
+    volumes:
+      - s3-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  s3-data:

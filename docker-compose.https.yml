@@ -1,0 +1,29 @@
+# Optional: put Caddy in front for automatic HTTPS (Let's Encrypt).
+# Needs a DNS name pointing at this host and ports 80/443 open.
+#
+#   DOMAIN=files.example.com in .env, then:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+services:
+  app:
+    ports: !reset []
+    environment:
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "true"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${DOMAIN:?Set DOMAIN in .env} --to app:3000
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:
