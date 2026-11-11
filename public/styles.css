@@ -144,3 +144,4 @@ dialog input[readonly] { width: 100%; font-family: ui-monospace, monospace; font
   th, td { padding: 9px 10px; }
   .topbar { padding: 10px 12px; }
 }
+.card p { margin: 0; }

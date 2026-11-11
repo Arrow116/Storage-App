@@ -15,6 +15,7 @@ password-protected web UI to browse folders, upload, download, share and delete 
 - Resumable/seekable downloads (HTTP range requests), in-browser preview for images, video, audio, PDF and text
 - Time-limited share links (presigned S3 URLs, 1 hour to 7 days)
 - Single-user login with a signed session cookie and failed-login throttling
+- Optional [MCP connector](#mcp-connector) so AI clients (Claude, ChatGPT, Cursor, VS Code, ...) can work with your files
 
 ## Quick start (AWS S3)
 
@@ -76,6 +77,59 @@ docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
 This also turns on `COOKIE_SECURE` and stops publishing port 3000 directly. All three compose
 files can be combined.
 
+## MCP connector
+
+The app can serve a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`
+so AI clients can browse, read, write and share your files. It is off by default. Set
+`MCP_ENABLED=true` in `.env` and run `docker compose up -d` again.
+
+| Tool | What it does |
+| --- | --- |
+| `list_files`, `search_files`, `get_file_info` | Browse folders and find files by name |
+| `read_file` | Read text files (in pieces for large ones) and small images |
+| `create_share_link` | Make a temporary public download URL |
+| `write_file`, `create_folder` | Create or replace files and folders |
+| `delete_file`, `delete_folder` | Delete permanently |
+
+Set `MCP_READ_ONLY=true` to leave out the last two rows.
+
+### Connecting a client
+
+The connector URL is your app address plus `/mcp`, for example `https://files.example.com/mcp`.
+
+**Clients with sign-in (Claude, ChatGPT, Cursor, VS Code, Claude Code):** add the URL as a custom
+connector / remote MCP server. The client opens a "Connect to Storage" page in your browser;
+approve it with the app username and password. Nothing else needs configuring: the app is its own
+OAuth server with dynamic client registration.
+
+```sh
+claude mcp add --transport http storage https://files.example.com/mcp   # Claude Code, then /mcp to sign in
+```
+
+**Clients without sign-in, scripts:** set `MCP_TOKEN` to a long random value
+(`openssl rand -hex 32`) and send it as a bearer token.
+
+```sh
+claude mcp add --transport http storage https://files.example.com/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+```
+
+```json
+{ "mcpServers": { "storage": { "url": "https://files.example.com/mcp", "headers": { "Authorization": "Bearer <MCP_TOKEN>" } } } }
+```
+
+### Things to know
+
+- Hosted clients such as Claude and ChatGPT connect from their own servers, so the app must be
+  reachable from the internet over HTTPS (use the HTTPS setup above). Desktop and CLI clients can
+  also use a plain `http://localhost:3000/mcp` address.
+- Behind a reverse proxy other than the bundled Caddy setup, set `PUBLIC_URL` to the public
+  address so the sign-in links point to the right place.
+- A connected client stays connected for up to 30 days without activity. To disconnect every
+  client at once, change `APP_PASSWORD` or `SESSION_SECRET`.
+- An AI client with write access can delete files on your behalf. Use `MCP_READ_ONLY=true` if
+  you only want it to look things up.
+- The transport is stateless Streamable HTTP: `POST /mcp` with JSON responses, tools only.
+
 ## Configuration
 
 All settings are environment variables; `.env.example` documents each one.
@@ -87,6 +141,9 @@ All settings are environment variables; `.env.example` documents each one.
 | `SESSION_TTL_HOURS` | `168` | How long a login lasts |
 | `COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 | `TRUST_PROXY` | `false` | Set `true` behind your own reverse proxy so login throttling sees real client IPs |
+| `MCP_ENABLED` / `MCP_READ_ONLY` | `false` / `false` | Serve the MCP connector at `/mcp`; optionally without write tools |
+| `MCP_TOKEN` | none | Fixed bearer token for MCP clients without sign-in (at least 24 characters) |
+| `PUBLIC_URL` | from request | Public address of the app, used in MCP sign-in links |
 | `APP_PORT` / `APP_BIND` | `3000` / `0.0.0.0` | Host port and address |
 | `MAX_UPLOAD_MB` | `5120` | Largest single upload |
 | `S3_BUCKET`, `S3_REGION` | required, `us-east-1` | Bucket |

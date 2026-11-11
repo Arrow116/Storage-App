@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import {
-  LoginLimiter,
   SESSION_COOKIE,
   checkCredentials,
   createSessionToken,
@@ -8,7 +7,10 @@ import {
   sessionCookie,
   verifySessionToken,
 } from "./auth.ts";
+import { loginLimiter as limiter } from "./auth.ts";
 import { config } from "./config.ts";
+import { SECURITY_HEADERS, clientAddress } from "./http.ts";
+import { handleMcpRoutes } from "./mcp/routes.ts";
 import { KeyError, baseName, parseFileKey, parseFolderKey } from "./keys.ts";
 import * as storage from "./storage.ts";
 
@@ -19,15 +21,9 @@ const STATIC_FILES: Record<string, { file: string; type: string }> = {
   "/styles.css": { file: "styles.css", type: "text/css; charset=utf-8" },
 };
 
-const SECURITY_HEADERS = {
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-  "X-Frame-Options": "DENY",
-};
 const PAGE_CSP = "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 const MAX_SHARE_SECONDS = 7 * 24 * 3600; // SigV4 presigned URL limit
-const limiter = new LoginLimiter();
 
 class HttpError extends Error {
   constructor(
@@ -40,14 +36,6 @@ class HttpError extends Error {
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return Response.json(data, { status, headers: { ...SECURITY_HEADERS, "Cache-Control": "no-store", ...headers } });
-}
-
-function clientAddress(req: Request, server: Bun.Server<unknown>): string {
-  if (config.trustProxy) {
-    const forwarded = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim();
-    if (forwarded) return forwarded;
-  }
-  return server.requestIP(req)?.address ?? "unknown";
 }
 
 async function readJson(req: Request): Promise<Record<string, unknown>> {
@@ -250,6 +238,15 @@ const server = Bun.serve({
         return errorResponse(err, `${req.method} ${url.pathname}`);
       }
     }
+    if (config.mcp.enabled) {
+      try {
+        const res = await handleMcpRoutes(req, url, server);
+        if (res) return res;
+      } catch (err) {
+        console.error(`[error] ${req.method} ${url.pathname}:`, err);
+        return json({ error: "Internal error" }, 500);
+      }
+    }
     const asset = STATIC_FILES[url.pathname];
     if (asset && (req.method === "GET" || req.method === "HEAD")) {
       return new Response(Bun.file(join(PUBLIC_DIR, asset.file)), {
@@ -266,6 +263,7 @@ const server = Bun.serve({
 });
 
 console.log(`Storage app listening on http://0.0.0.0:${server.port}`);
+if (config.mcp.enabled) console.log(`MCP endpoint enabled at /mcp${config.mcp.readOnly ? " (read-only)" : ""}`);
 console.log(`Bucket: ${config.s3.bucket}${config.s3.prefix ? ` (prefix ${config.s3.prefix})` : ""}`);
 storage.ping().then(
   () => console.log("S3 connection OK"),

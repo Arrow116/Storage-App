@@ -144,6 +144,49 @@ export function read(key: string, range?: { start: number; end: number }): Reada
   return (range ? file.slice(range.start, range.end + 1) : file).stream();
 }
 
+export async function exists(key: string): Promise<boolean> {
+  return client.file(full(key)).exists();
+}
+
+export async function readBytes(key: string, range: { start: number; end: number }): Promise<Uint8Array> {
+  return new Uint8Array(await new Response(read(key, range)).arrayBuffer());
+}
+
+export async function writeData(key: string, data: string | Uint8Array, contentType: string): Promise<void> {
+  await client.file(full(key)).write(data, { type: contentType });
+}
+
+/** Case-insensitive match on the path, scanning at most `maxScan` objects under a folder. */
+export async function search(
+  prefix: string,
+  query: string,
+  limit: number,
+  maxScan: number,
+): Promise<{ matches: FileEntry[]; scanned: number; complete: boolean }> {
+  const needle = query.toLowerCase();
+  const matches: FileEntry[] = [];
+  let scanned = 0;
+  let continuationToken: string | undefined;
+  do {
+    const page = await client.list({ prefix: full(prefix), maxKeys: 1000, continuationToken });
+    for (const obj of page.contents ?? []) {
+      scanned++;
+      const key = strip(obj.key);
+      if (baseName(key) === FOLDER_PLACEHOLDER) continue;
+      if (!key.toLowerCase().includes(needle)) continue;
+      matches.push({
+        key,
+        name: baseName(key),
+        size: obj.size ?? 0,
+        lastModified: obj.lastModified ? new Date(obj.lastModified).toISOString() : null,
+      });
+      if (matches.length >= limit) return { matches, scanned, complete: false };
+    }
+    continuationToken = page.isTruncated ? page.nextContinuationToken : undefined;
+  } while (continuationToken && scanned < maxScan);
+  return { matches, scanned, complete: !continuationToken };
+}
+
 export async function removeFile(key: string): Promise<void> {
   await client.file(full(key)).delete();
 }

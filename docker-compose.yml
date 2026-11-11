@@ -20,6 +20,10 @@ services:
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      MCP_ENABLED: ${MCP_ENABLED:-false}
+      MCP_READ_ONLY: ${MCP_READ_ONLY:-false}
+      MCP_TOKEN: ${MCP_TOKEN:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-5120}
       S3_BUCKET: ${S3_BUCKET:-}
       S3_REGION: ${S3_REGION:-us-east-1}
